@@ -1,4 +1,4 @@
-package Curve;
+package curve;
 
 public class Point
 {
@@ -52,7 +52,7 @@ public class Point
 		return new Point(this.x + point.x, this.y + point.y);
 	}
 
-	Point sub(Point point)
+	public Point sub(Point point)
 	{
 		return new Point(this.x - point.x, this.y - point.y);
 	}

@@ -1,15 +1,16 @@
-package Curve;
+package curve;
 
 import java.util.Vector;
 
+import util.BezierCurve;
+
 public class Stroke
 {
-	public static int threshold = 50;
+	public static int threshold = 30;
 
 	// 控制点收缩系数 ，经调试0.6较好，Point是opencv的，可自行定义结构体(x,y)
 	public static float scale = 0.6f;
 
-	//
 	public Vector<Curve> curves;
 
 	public Vector<Point> originPoints;
@@ -61,15 +62,21 @@ public class Stroke
 
 	}
 
+	/**
+	 * 更新曲线
+	 * */
 	public void updateCurve()
 	{
-		if (originPointCount > 1)
+		if (originPointCount == 1)
+		{
+			createCurveWithSingePoint();
+		}
+		else
 		{
 			updateMidPoints();
 			updateExtraPoints();
 			updateCurvePoints();
 		}
-
 	}
 
 	/**
@@ -81,18 +88,14 @@ public class Stroke
 
 		addTempPoints();
 
-		middlePoints.clear();
-
-		// 生成中点
-		for (int i = 0; i < originPoints.size() - 1; i++)
-		{
-			Point midPoint = Point.getMidPoint(originPoints.get(i), originPoints.get(i + 1));
-			middlePoints.add(midPoint);
-		}
+		createMidPoints();
 
 		removeTempPoints();
 	}
 
+	/**
+	 * 在头部获取一个新的临时点
+	 * */
 	public Point getTempFirstPoint()
 	{
 		Point firstPoint = originPoints.firstElement();
@@ -102,6 +105,10 @@ public class Stroke
 		return tempFirstPoint;
 	}
 
+	
+	/**
+	 * 在尾部获取一个新的临时点
+	 * */
 	public Point getTempLastPoint()
 	{
 		Point lastPoint = originPoints.lastElement();
@@ -111,12 +118,38 @@ public class Stroke
 		return tempFirstPoint;
 	}
 
+	
+	/**
+	 * 生成中点
+	 * */
+	public void createMidPoints()
+	{
+		middlePoints.clear();
+
+		// 生成中点
+		for (int i = 0; i < originPoints.size() - 1; i++)
+		{
+			Point currPoint = originPoints.get(i);
+			Point nextPoint = originPoints.get(i+1);
+			Point midPoint = Point.getMidPoint(currPoint, nextPoint);
+			middlePoints.add(midPoint);
+		}
+	}
+	
+	
+	/**
+	 * 加入临时点
+	 * */
 	public void addTempPoints()
 	{
 		originPoints.add(0, getTempFirstPoint());
 		originPoints.add(getTempLastPoint());
 	}
-
+	
+	
+	/**
+	 * 删除临时点
+	 * */
 	public void removeTempPoints()
 	{
 		originPoints.remove(0);
@@ -155,69 +188,243 @@ public class Stroke
 	}
 
 	/**
+	 *加上收尾的点
+	 **/
+	public void  addTailCurvePoints()
+	{
+		if(originPointCount>2)
+		{
+			
+			
+			
+			Point beginPoint = originPoints.get(originPointCount-2);
+			Point endPoint = originPoints.get(originPointCount-1);
+			
+			
+			if (beginPoint.sub(endPoint).length()>250)
+			{
+				curves.remove(curves.lastElement());
+				addCurve2(beginPoint, endPoint);
+			}
+			
+//			if (getAdjoinDistance(originPoints, originPointCount-2)>100)
+//			{
+//				Vector<Point> curvePoints = new Vector<Point>();
+//				Point lastSecondPoint = originPoints.lastElement();
+//				Point lastPoint = getTempLastPoint();
+//				originPoints.add(lastPoint);
+//				
+//				// 生成4控制点，产生贝塞尔曲线
+//				for (float i = 0; i < 1; i+=0.1)
+//				{
+//					Point point = Point.getPointBetweenTweenPoint(lastSecondPoint, lastPoint, i);
+//
+//					curvePoints.add(point);
+//
+//					curves.add(new Curve(curvePoints, false, endSize, 10));
+//
+//				}
+//			}
+		}
+	}
+	
+	
+	/**
 	 * 由原始点与辅助控制点生成曲线的点
 	 **/
 	public void updateCurvePoints()
 	{
 
-		curves.clear();
-
-		// 生成4控制点，产生贝塞尔曲线
-		for (int i = 0; i < originPointCount - 1; i++)
+		if (originPointCount==2)
 		{
-			controlPoint = getControlPoints(i);
-
-			Vector<Point> curvePoints = new Vector<Point>();
-
-			updateCurveInfo(i);
-
-			for (float j = 1; j >= 0; j -= interval)
+			createCurveWithTwoPoints();
+			return;
+		}
+		
+		int begin,end;
+		begin = originPointCount-3;
+		end = originPointCount-1;
+		curves.remove(curves.size()-1);
+		
+		Point beginPoint = originPoints.get(originPointCount-2);
+		Point endPoint = originPoints.get(originPointCount-1);
+		
+		
+		if (beginPoint.sub(endPoint).length()>250)
+		{
+			addCurve(originPoints.get(begin), beginPoint);
+			addCurve(beginPoint, endPoint);
+			
+			return;
+		}
+		else
+		{
+			// 生成4控制点，产生贝塞尔曲线
+			for (int i = begin; i < end; i++)
 			{
-				float px = BezierCurve.bezier3funcX(j, controlPoint);
-				float py = BezierCurve.bezier3funcY(j, controlPoint);
-				// 存入曲线点
-				curvePoints.addElement(new Point(px, py));
+				updateCurveInfo(i);
+				
+				
+				controlPoint = getControlPoints(i);
+
+				Vector<Point> curvePoints = new Vector<Point>();
+				for (float j = 1; j >= 0; j -= interval)
+				{
+					curvePoints.addElement(BezierCurve.bezier3func(j, controlPoint));
+				}
+				curves.add(new Curve(curvePoints, isConcentrated, beginSize, endSize));
 
 			}
-
-			curves.add(new Curve(curvePoints, isConcentrated, beginSize, endSize));
-
 		}
 
+
+
+	}
+	
+	
+	public void addCurve(Point beginPoint,Point endPoint)
+	{
+		Vector<Curve> sthCurves = SomethingElse.getCurves(beginPoint, endPoint,endSize);
+		for (int i = 0; i < sthCurves.size(); i++)
+		{
+			curves.add(sthCurves.get(i));
+		}
+		endSize = 15;
+	}
+	
+	public void addCurve2(Point beginPoint,Point endPoint)
+	{
+		Vector<Curve> sthCurves = SomethingElse.getCurves(beginPoint, endPoint,beginSize,beginSize*0.8f);
+		for (int i = 0; i < sthCurves.size(); i++)
+		{
+			curves.add(sthCurves.get(i));
+		}
+		endSize = 15;
+	}
+	
+	/**
+	 * 生成一个点的curve
+	 **/
+	public void createCurveWithSingePoint()
+	{
+
+		//curves.clear();
+		curves.add(new Curve(originPoints, beginSize, endSize));
+
 	}
 
+	/**
+	 * 生成两个点的curve
+	 **/
+	public void createCurveWithTwoPoints()
+	{
+		curves.clear();
+		Point beginPoint = originPoints.get(0);
+		Point endPoint = originPoints.get(1);
+		
+		if (beginPoint.sub(endPoint).length()>250)
+		{
+			addCurve(beginPoint, endPoint);
+		}
+		else
+		{
+			// 生成4控制点，产生贝塞尔曲线
+			for (int i = 0; i < 1; i++)
+			{
+				updateCurveInfo(i);
+				controlPoint = getControlPoints(i);
+
+				Vector<Point> curvePoints = new Vector<Point>();
+				for (float j = 1; j >= 0; j -= interval)
+				{
+					curvePoints.addElement(BezierCurve.bezier3func(j, controlPoint));
+				}
+				curves.add(new Curve(curvePoints, isConcentrated, beginSize, endSize));
+			}
+		}
+
+
+	}
+	
+	
+	/**
+	 * 跟新构建curve需要的信息
+	 * */
 	public void updateCurveInfo(int index)
 	{
-		distance = adjoinDistance(originPoints, index);
-		isConcentrated = distance < threshold;
-		beginSize = endSize;
-		endSize = getEndSize(distance);
-		interval = getInterval(beginSize, endSize, distance);
+		updateDistance(index);
+		updateBeginSize();
+		updateEndSize();
+		updateInterval();
+	}
+	
+	
+	/**
+	 * 更新当前原始点到下一原始点的距离
+	 * */
+	public void updateDistance(int index)
+	{
+		distance = getAdjoinDistance(originPoints, index);
 	}
 
-	public float getInterval(float beginSize, float endSize, float distance)
+	/**
+	 * 更新beginSize
+	 * */
+	public void updateBeginSize()
 	{
-		float interval = 0.05f + (threshold - distance) / 10000f;
+		if (curves.isEmpty())
+		{
+			beginSize = endSize;
+		}
+		else
+		{
+			beginSize = curves.lastElement().endSize;
+		}
+	}
+	
+	
+	/**
+	 * 更新endSize
+	 * */
+	public void updateEndSize()
+	{
+		
+		if(distance > 500)
+		{
+			endSize =  15;
+		}
+		else
+		{
+			endSize =  15 + (500-distance)/10;
+		}
+		
+		endSize = endSize>60?60:endSize;
+		
+	}
+	
+	
+	/**
+	 * 更新采样的间隔
+	 * */
+	public void updateInterval()
+	{
+		//interval = (beginSize+endSize)/distance/50;
+		//System.out.println(interval);
+		//float imgSize = distance*interval;
+		float interval = 0.05f + (threshold - distance) / 50000f;
 
+		System.out.println("distance: " + distance + "interval :" + interval);
 		if (interval < 0.025f)
 		{
 			interval = 0.025f;
 		}
 
-		return interval;
 	}
 
-	public float getEndSize(float distance)
-	{
-		if (isConcentrated)
-		{
-			return 60;
-		} else
-		{
-			return 20 + 2000 / distance;
-		}
-	}
 
+	/**
+	 * 获取控制点
+	 **/
 	public Point[] getControlPoints(int index)
 	{
 		Point controlPoint[] = new Point[4];
@@ -228,17 +435,16 @@ public class Stroke
 		return controlPoint;
 	}
 
-	public static float getAngle(Point point1, Point point2)
+
+
+	/**
+	 * 获取相邻的的点之间的距离
+	 * */
+	public float getAdjoinDistance(Vector<Point> points, int index)
 	{
-		Point offsetPoint = point1.sub(point2);
-
-		return (float) Math.atan2(-offsetPoint.y, offsetPoint.x);
-	}
-
-	public static float adjoinDistance(Vector<Point> originPoints, int index)
-	{
-		return originPoints.get(index + 1).sub(originPoints.get(index)).length();
-
+		if(index >= points.size()-1) return 0;
+		
+		return points.get(index + 1).sub(points.get(index)).length();
 	}
 
 	/**
@@ -264,4 +470,6 @@ public class Stroke
 		return points;
 	}
 
+	
+	
 }
