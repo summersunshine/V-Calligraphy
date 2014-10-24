@@ -67,6 +67,12 @@ public class Point
 		return new Point(this.x / m, this.y / m);
 	}
 
+	public static float getDistance(Point point1,Point point2)
+	{
+		return point1.sub(point2).length();
+	}
+	
+	
 	public static Point getMidPoint(Point point1, Point point2)
 	{
 		return new Point((point1.x + point2.x) / 2.0f, (point1.y + point2.y) / 2.0f);

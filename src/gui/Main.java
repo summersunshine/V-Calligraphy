@@ -11,7 +11,7 @@ import curve.Canvas;
 import curve.Curve;
 import curve.Point;
 import curve.PolygonLine;
-import curve.SomethingElse;
+import curve.FirstStroke;
 
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
@@ -98,7 +98,7 @@ public class Main extends JFrame implements MouseMotionListener, MouseListener, 
 	{
 		Main mainFrame = new Main();
 		mainFrame.setSize(1280, 800);
-		mainFrame.setTitle("B样条曲线");
+		mainFrame.setTitle("虚拟毛笔");
 		mainFrame.setVisible(true);
 	}
 
@@ -205,7 +205,7 @@ public class Main extends JFrame implements MouseMotionListener, MouseListener, 
 	 * 生成*/
 	public void createAction()
 	{
-		SomethingElse somethingElse = new SomethingElse(points.get(0), points.get(1),60);
+		FirstStroke somethingElse = new FirstStroke(points.get(0), points.get(1),60);
 		
 		
 		//graphics.clearRect(0, 0, 1280, 720);
@@ -221,7 +221,7 @@ public class Main extends JFrame implements MouseMotionListener, MouseListener, 
 	 */
 	public void mouseDragged(MouseEvent e)
 	{ // MouseMotionListener
-		addNewPointAndDraw(new Point(e.getX(),e.getY()));
+		addNewPointAndDraw(new Point(e.getX(),e.getY()),false);
 	}
 	
 	
@@ -234,15 +234,17 @@ public class Main extends JFrame implements MouseMotionListener, MouseListener, 
 		System.out.println("start stroke");
 		Canvas.getInstance().calligraphy.startStroke();
 	
-		addNewPointAndDraw(new Point(e.getX(),e.getY()));
+		//addNewPointAndDraw(new Point(e.getX(),e.getY()),false);
 		
 	}
 	
 	/**
 	 * 加入一个新的点并重新绘制
 	 * */
-	public void addNewPointAndDraw(Point point)
+	public void addNewPointAndDraw(Point point,boolean isForce)
 	{
+		System.out.println("Point: "+ point.x + " " + point.y);
+		
 		graphics = paintPanel.getGraphics();
 		if (++pointNumber % 5 == 1)
 		{
@@ -264,6 +266,7 @@ public class Main extends JFrame implements MouseMotionListener, MouseListener, 
 	public void mouseReleased(MouseEvent e)
 	{ // MouseListener
 		
+		addNewPointAndDraw(new Point(e.getX(),e.getY()),true);
 		
 		Canvas.getInstance().calligraphy.endStroke();
 		polygonLines.add(polygonLine);
@@ -278,18 +281,7 @@ public class Main extends JFrame implements MouseMotionListener, MouseListener, 
 	 */
 	public void mouseClicked(MouseEvent e)
 	{ // MouseListener
-		Point point = new Point(e.getX(), e.getY());
-		polygonLine.points.addElement(point);
 
-		
-		if (points.size()==2)
-		{
-			points.remove(0);
-		}
-		points.add(point);
-		
-		graphics = paintPanel.getGraphics();
-		graphics.drawRect((int)point.x, (int)point.y, 3, 3);
 		drawRectAndLine(graphics);
 	}
 

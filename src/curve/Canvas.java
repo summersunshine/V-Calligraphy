@@ -104,10 +104,11 @@ public class Canvas
 		for (int i = 0; i < curve.points.size()-1; i++)
 		{
 			int size =  (int) ((curve.beginSize + i * interval)*0.8);
+			
 			if (size > 0)
 			{	
 				int sizeY = size;
-				int sizeX = size;
+				int sizeX = (int) (size*0.8f);
 				int x = (int) curve.points.elementAt(i).x - sizeX / 2;
 				int y = (int) curve.points.elementAt(i).y - sizeY / 2;
 				graphics.drawImage(pointBrush, x, y, sizeX, sizeY, null);
