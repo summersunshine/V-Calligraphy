@@ -4,6 +4,7 @@ import java.awt.*;
 import javax.imageio.ImageIO;
 import javax.swing.*;
 
+import constants.Global;
 import util.BezierCurve;
 import util.RotateImage;
 import curve.Calligraphy;
@@ -76,11 +77,46 @@ public class Main extends JFrame implements MouseMotionListener, MouseListener, 
 		reset.addActionListener(this);
 		this.add(reset);
 		
-		JButton create = new JButton("生成");
-		create.setBounds(540, 10, 70, 30);
-		create.addActionListener(this);
-		this.add(create);
+		JToggleButton isModifyBeginButton = new JToggleButton("是否优化起笔处");
+		isModifyBeginButton.setBounds(540, 10, 170, 30);
+		isModifyBeginButton.addActionListener(this);
+		this.add(isModifyBeginButton);
+		
+		JToggleButton isModifyEndButton = new JToggleButton("是否优化收笔处");
+		isModifyEndButton.setBounds(710, 10, 170, 30);
+		isModifyEndButton.addActionListener(this);
+		this.add(isModifyEndButton);
 	}
+	
+	/**
+	 * 按钮的相应事件（不管触发什么事件，都先清屏）
+	 * “画B样条曲线”：将临时数组中之前鼠标事件得到的点的坐标序列存入数组，并调用BLine中的drawBLine方法，画B样条曲线
+	 * “重画”：将计数器pointNumber清零
+	 */
+	public void actionPerformed(ActionEvent e)
+	{
+		String arg = e.getActionCommand();
+		graphics = paintPanel.getGraphics();
+		//graphics.clearRect(0, 0, 1280, 720);
+		
+		if (arg.equals("撤销"))
+		{
+			cancelAction();
+		} 
+		else if (arg.equals("重画"))
+		{
+			redrawAction();
+		}
+		else if (arg.equals("是否优化起笔处"))
+		{
+			Global.isModifyBegin = !Global.isModifyBegin;
+		}
+		else if (arg.equals("是否优化收笔处"))
+		{
+			Global.isModifyEnd = !Global.isModifyEnd;
+		}
+	}
+	
 	
 	/**
 	 * 初始化轨迹线
@@ -133,7 +169,7 @@ public class Main extends JFrame implements MouseMotionListener, MouseListener, 
 		{
 			xPoints[i] = (int) points.elementAt(i).x;
 			yPoints[i] = (int) points.elementAt(i).y;
-			g.fillArc(xPoints[i] - 3, yPoints[i] - 3, 6, 6, 0, 360);
+			g.fillArc(xPoints[i] - 5, yPoints[i] - 5, 10, 10, 0, 360);
 		}
 	}
 
@@ -154,30 +190,7 @@ public class Main extends JFrame implements MouseMotionListener, MouseListener, 
 		g.drawPolyline(xPoints, yPoints, points.size());
 	}
 
-	/**
-	 * 按钮的相应事件（不管触发什么事件，都先清屏）
-	 * “画B样条曲线”：将临时数组中之前鼠标事件得到的点的坐标序列存入数组，并调用BLine中的drawBLine方法，画B样条曲线
-	 * “重画”：将计数器pointNumber清零
-	 */
-	public void actionPerformed(ActionEvent e)
-	{
-		String arg = e.getActionCommand();
-		graphics = paintPanel.getGraphics();
-		graphics.clearRect(0, 0, 1280, 720);
-		
-		if (arg.equals("撤销"))
-		{
-			cancelAction();
-		} 
-		else if (arg.equals("重画"))
-		{
-			redrawAction();
-		}
-		else if (arg.equals("生成"))
-		{
-			createAction();
-		}
-	}
+
 	
 	/**
 	 * 撤销最后一个笔划
@@ -188,29 +201,20 @@ public class Main extends JFrame implements MouseMotionListener, MouseListener, 
 		graphics.clearRect(0, 0, 1280, 720);
 		polygonLines.remove(polygonLines.size()-1);
 		Canvas.getInstance().calligraphy.strokes.remove(polygonLines.size());
-		drawRectAndLine(graphics);
+		
 		Canvas.getInstance().draw(graphics);
+		drawRectAndLine(graphics);
 	}
 	
 	/**
 	 * 撤销所有笔划*/
 	public void redrawAction()
 	{
+		graphics.clearRect(0, 0, 1280, 720);
+		
 		pointNumber = 0;
 		polygonLines.clear();
 		Canvas.getInstance().calligraphy = new Calligraphy();
-	}
-	
-	/**
-	 * 生成*/
-	public void createAction()
-	{
-		FirstStroke somethingElse = new FirstStroke(points.get(0), points.get(1),60);
-		
-		
-		//graphics.clearRect(0, 0, 1280, 720);
-		Canvas.getInstance().draw(graphics,somethingElse.curves);
-		
 	}
 	
 	
@@ -251,12 +255,11 @@ public class Main extends JFrame implements MouseMotionListener, MouseListener, 
 			polygonLine.points.addElement(point);
 			Canvas.getInstance().calligraphy.addPoint(point);
 		}
-		//graphics.setColor(Color.red);
+
 		drawRectAndLine(graphics);
 		graphics.clearRect(0, 0, 1280, 720);
 		Canvas.getInstance().draw(graphics);
-		
-		//drawRectAndLine(graphics);
+
 	}
 	
 
@@ -272,6 +275,10 @@ public class Main extends JFrame implements MouseMotionListener, MouseListener, 
 		polygonLines.add(polygonLine);
 		polygonLine =  new PolygonLine();
 		System.out.println("end stroke " + polygonLines.size());
+		
+		drawRectAndLine(graphics);
+		//graphics.clearRect(0, 0, 1280, 720);
+		//Canvas.getInstance().draw(graphics);
 	}
 	
 	

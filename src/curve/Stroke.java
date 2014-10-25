@@ -4,6 +4,7 @@ import java.util.Vector;
 
 import org.omg.CORBA.PUBLIC_MEMBER;
 
+import constants.Global;
 import util.BezierCurve;
 
 public class Stroke
@@ -14,7 +15,11 @@ public class Stroke
 	public static float scale = 0.6f;
 
 	public Vector<Curve> curves;
-
+	public Vector<Curve> beginCurves;
+	public Vector<Curve> modifyBeginCurves;
+	public Vector<Curve> endCurves;
+	public Vector<Curve> modifyEndCurves;
+	
 	public Vector<Point> originPoints;
 	public Vector<Point> middlePoints;
 	public Vector<Point> extraPoints;
@@ -25,14 +30,25 @@ public class Stroke
 	private float endSize = 60;
 	private float interval = 0.01f;
 	private float distance;
-	private boolean isConcentrated;
+	private boolean isTail;
+	private boolean isBeginModified;
+	private boolean isEndModified;
 
 	public Stroke()
 	{
+		isTail = false;
+		isBeginModified = false;
+		isEndModified = false;
 		curves = new Vector<Curve>();
+		beginCurves = new Vector<Curve>();
+		endCurves = new Vector<Curve>();
+		modifyBeginCurves = new Vector<Curve>();
+		modifyEndCurves = new Vector<Curve>();
 		originPoints = new Vector<Point>();
 		middlePoints = new Vector<Point>();
 		extraPoints = new Vector<Point>();
+		controlPoint = new Point[4];
+
 	}
 
 	/**
@@ -56,7 +72,7 @@ public class Stroke
 			return;
 		}
 
-		if (originPoints.lastElement() != point)
+		if (originPoints.lastElement() != point || true)
 		{
 			originPoints.add(point);
 			originPointCount = originPoints.size();
@@ -224,42 +240,40 @@ public class Stroke
 	/**
 	 *加上收尾的点
 	 **/
-	public void  addTailCurvePoints()
+	public void  modifyTailCurves()
 	{
-		if(originPointCount>2)
+		if(originPointCount>2 && Global.isModifyEnd)
 		{
-			//addTempPoints();
-		
-			//originPoints.add(Point.getPointBetweenTweenPoint(getTempLastPoint(),getLastPoint(),(float) 0.2));
-			//originPoints.add(getTempLastPoint());
-			//originPointCount++;
-			//Point beginPoint = originPoints.get(originPointCount-3);
-			Point beginPoint = originPoints.get(originPointCount-2);
-			Point endPoint = originPoints.get(originPointCount-1);
-			
-			
-//			if (beginPoint.sub(endPoint).length()>50 &&
-//					beginPoint.sub(endPoint).length()<150)
-//			{
-//				curves.remove(curves.size()-1);
-//				addCurve2(beginPoint, endPoint);
-//			}
+			if (getLastDistance()>50)
+			{
+				endCurves.add(curves.lastElement());
+				curves.remove(curves.lastElement());
+				this.isTail = true;
+				updateMidPoints();
+				updateExtraPoints();
+				samleForBezier( originPointCount-2,originPointCount-1);
+			}
 		}
 	}
 	
 	
 
 	/**
-	 * 生成一个点的curve
+	 * 由一个点生成curve（实际上就是一个点）
 	 **/
 	public void createCurveWithSingePoint()
 	{
-		curves.add(new Curve(originPoints, beginSize, endSize));
+		Vector<Point> curvePoints = new Vector<Point>();
+		for (int i = 0; i < 10; i++)
+		{
+			curvePoints.add(originPoints.firstElement());
+		}
+		curves.add(new Curve(curvePoints, beginSize, endSize));
 
 	}
 
 	/**
-	 * 生成两个点的curve
+	 * 由两个点生成curve
 	 **/
 	public void createCurveWithTwoPoints()
 	{
@@ -267,13 +281,16 @@ public class Stroke
 		Point beginPoint = originPoints.get(0);
 		Point endPoint = originPoints.get(1);
 		
-		if (getLastDistance()>150)
+		if (getLastDistance()>150 && Global.isModifyBegin)
 		{
-			addCurve(beginPoint, endPoint);
+			isBeginModified = true;
+			createMixCurves(beginPoint, endPoint);
+			endSize = 25;
 		}
-		else if (getLastDistance()>100)
+		else if (getLastDistance()>100 && Global.isModifyBegin)
 		{
-			addCurve2(beginPoint, endPoint);
+			isBeginModified = true;
+			createTransitionCurves(beginPoint, endPoint);
 		}
 		else
 		{
@@ -281,15 +298,17 @@ public class Stroke
 			updateExtraPoints();
 			samleForBezier(0,1);
 		}
+		
+		beginCurves.addAll(curves);
 	}
 	
 	
 	/**
-	 * 生成多点的curve
+	 * 当点数超过2的时候生成的curve
 	 **/
 	public void createCurveWithMorePoints()
 	{
-		curves.remove(curves.size()-1);
+		curves.remove(curves.lastElement());
 		
 		updateMidPoints();
 		updateExtraPoints();
@@ -301,95 +320,53 @@ public class Stroke
 	
 	
 	/**
+	 * 在曲线上采样
+	 * @param beginIndx 
+	 * @param endIndx 
 	 * */
-	public void samleForBezier(int begin,int end)
+	public void samleForBezier(int beginIndx,int endIndx)
 	{
 		// 生成4控制点，产生贝塞尔曲线
-		for (int i = begin; i < end; i++)
+		for (int i = beginIndx; i < endIndx; i++)
 		{
 			updateCurveInfo(i);
-			controlPoint = getControlPoints(i);
+			updateControlPoints(i);
+			createBezierCurves();
 
-			Vector<Point> curvePoints = new Vector<Point>();
-			for (float j = 1; j >= 0; j -= interval)
-			{
-				curvePoints.addElement(BezierCurve.bezier3func(j, controlPoint));
-			}
-			curves.add(new Curve(curvePoints, isConcentrated, beginSize, endSize));
 		}
+	}
+	
+	
+	/**
+	 * 在控制点生成*的bezier曲线上进行采样
+	 * */
+	public void createBezierCurves()
+	{
+		Vector<Point> curvePoints = new Vector<Point>();
+		for (float j = 1; j >= 0; j -= interval)
+		{
+			curvePoints.addElement(BezierCurve.bezier3func(j, controlPoint));
+		}
+		curves.add(new Curve(curvePoints, beginSize, endSize));
+	}
+	
+
+	/**
+	 * 生成混合区段，包括一段过度段和一段稳定段
+	 * */
+	public void  createMixCurves(Point beginPoint,Point endPoint)
+	{
+		curves.addAll(FirstStroke.getCurves(beginPoint, endPoint,endSize));
+		
 	}
 	
 	/**
+	 * 生成过度段
 	 * */
-	public void samleForBezier2(int begin,int end)
+	public void createTransitionCurves(Point beginPoint,Point endPoint)
 	{
-		// 生成4控制点，产生贝塞尔曲线
-		for (int i = begin; i < end; i++)
-		{
-			updateCurveInfo(i);
-			controlPoint = getControlPoints(i);
-			addCurves();
-		}
-	}
-	
-	
-	public void addCurves()
-	{
-		Vector<Point> curvePoints = new Vector<Point>();
-		curvePoints.add(BezierCurve.bezier3func(1, controlPoint));
-		Vector<Float> distances = new Vector<Float>();
-		distances.add((float) 0);
-		float totalDistance = 0;
-		float distance = 0;
+		curves.addAll(FirstStroke.getCurves(beginPoint, endPoint,endSize,endSize*0.5f));
 		
-		Point currPoint = BezierCurve.bezier3func(1, controlPoint);
-		Point nextPoint;
-		
-		for (float j = 0.9f; j >= 0; j -= 0.1)
-		{
-			nextPoint =  BezierCurve.bezier3func(j, controlPoint);
-			distance = Point.getDistance(currPoint, nextPoint);
-			totalDistance +=distance;
-			distances.add(totalDistance);
-			curvePoints.addElement(BezierCurve.bezier3func(j, controlPoint));
-		}
-		
-		
-		//curves = new Vector<Curve>();
-		for (int j = 0; j < distances.size()-1; j++)
-		{
-			Vector<Point> points = new Vector<Point>();
-			Point point;
-			for (int k = 0; k < 10; k++)
-			{
-				point = Point.getPointBetweenTweenPoint(curvePoints.get(j),curvePoints.get(j+1),k/9f);
-				points.add(point);
-			}
-			float size1 = beginSize+distances.get(j)*(endSize-beginSize)/(totalDistance);
-			float size2 = beginSize+distances.get(j+1)*(endSize-beginSize)/(totalDistance);
-			curves.add(new Curve(points,size1,size2));
-
-		}
-	}
-	
-	public void addCurve(Point beginPoint,Point endPoint)
-	{
-		Vector<Curve> sthCurves = FirstStroke.getCurves(beginPoint, endPoint,endSize);
-		for (int i = 0; i < sthCurves.size(); i++)
-		{
-			curves.add(sthCurves.get(i));
-		}
-		endSize = 25;
-	}
-	
-	public void addCurve2(Point beginPoint,Point endPoint)
-	{
-		Vector<Curve> sthCurves = FirstStroke.getCurves(beginPoint, endPoint,endSize,endSize*0.5f);
-		for (int i = 0; i < sthCurves.size(); i++)
-		{
-			curves.add(sthCurves.get(i));
-		}
-		//endSize*=0.5;
 	}
 	
 
@@ -421,7 +398,7 @@ public class Stroke
 	{
 		if (curves.isEmpty())
 		{
-			beginSize = endSize;
+			beginSize = Global.BigSize;
 		}
 		else
 		{
@@ -447,6 +424,13 @@ public class Stroke
 		
 		endSize = endSize>60?60:endSize;
 		
+		if (isTail)
+		{
+			float factor = (200-getLastDistance())/200f;
+			factor = factor>0.1?factor:0.1f;
+			endSize*=factor;
+		}
+		
 	}
 	
 	
@@ -455,13 +439,14 @@ public class Stroke
 	 * */
 	public void updateInterval()
 	{
+		//interval = 0.025f;
 
-		float interval = 0.04f + (threshold - distance) / 50000f;
+		interval = 0.04f + (threshold - distance) /10000f;
 
 		System.out.println("distance: " + distance + "interval :" + interval);
-		if (interval < 0.025f)
+		if (interval < 0.01f)
 		{
-			interval = 0.025f;
+			interval = 0.01f;
 		}
 
 	}
@@ -470,14 +455,12 @@ public class Stroke
 	/**
 	 * 获取控制点
 	 **/
-	public Point[] getControlPoints(int index)
+	public void updateControlPoints(int index)
 	{
-		Point controlPoint[] = new Point[4];
 		controlPoint[0] = originPoints.get(index);
 		controlPoint[1] = extraPoints.get(2 * index + 1);
 		controlPoint[2] = extraPoints.get(2 * index + 2);
 		controlPoint[3] = originPoints.get(index + 1);
-		return controlPoint;
 	}
 
 

@@ -2,10 +2,12 @@ package curve;
 
 import java.util.Vector;
 
+import constants.Global;
+
 public class FirstStroke
 {
-	public float BigSize;
-	public float SmallSize=25;
+	public float beginSize;
+	public float endSize;
 	
 	//纹理片段的数目
 	public int pieceNum;
@@ -17,51 +19,54 @@ public class FirstStroke
 	public Vector<Float> sizes;
 	//各个片段到起始点的距离
 	public Vector<Float> distances;
+	//开始点
 	public Point beginPoint;
+	//终止点
 	public Point endPoint;
 	
 	public Vector<Curve> curves;
 	
 	public boolean isMix;
 	
-	public FirstStroke(Point beginPoint,Point endPoint,float BigSize)
+	public FirstStroke(Point beginPoint,Point endPoint,float beginSize)
 	{
 		// TODO Auto-generated constructor stub
 		this.beginPoint = beginPoint;
 		this.endPoint = endPoint;
-		this.BigSize = BigSize;
+		this.beginSize = beginSize;
+		this.endSize = Global.SmallSize;
 		this.curves = new Vector<Curve>();
 		this.createMix();
 	}	
 	
-	public FirstStroke(Point beginPoint,Point endPoint,float BigSize,float SmallSize)
+	public FirstStroke(Point beginPoint,Point endPoint,float beginSize,float endSize)
 	{
 		// TODO Auto-generated constructor stub
 
 		this.beginPoint = beginPoint;
 		this.endPoint = endPoint;
-		this.BigSize = BigSize;
-		this.SmallSize = SmallSize;
+		this.beginSize = beginSize;
+		this.endSize = endSize;
 		this.curves = new Vector<Curve>();
 		this.createTransition();
 	}	
 	
-	public static Vector<Curve> getCurves(Point beginPoint,Point endPoint,float BigSize)
+	public static Vector<Curve> getCurves(Point beginPoint,Point endPoint,float beginSize)
 	{
-		FirstStroke somethingElse = new FirstStroke(beginPoint, endPoint,BigSize);
+		FirstStroke somethingElse = new FirstStroke(beginPoint, endPoint,beginSize);
 		return somethingElse.curves;
 	}
-	public static Vector<Curve> getCurves(Point beginPoint,Point endPoint,float BigSize,float SmallSize)
+	public static Vector<Curve> getCurves(Point beginPoint,Point endPoint,float beginSize,float endSize)
 	{
-		FirstStroke somethingElse = new FirstStroke(beginPoint, endPoint,BigSize,SmallSize);
+		FirstStroke somethingElse = new FirstStroke(beginPoint, endPoint,beginSize,endSize);
 		return somethingElse.curves;
 	}
 	
 	public void createTransition()
 	{
 		length = beginPoint.sub(endPoint).length();
-		pieceNum = (int) (2*length/(BigSize+SmallSize));
-		commonDifference = (BigSize-SmallSize)/pieceNum;
+		pieceNum = (int) (2*length/(beginSize+endSize));
+		commonDifference = (beginSize-endSize)/pieceNum;
 		pretreatment();
 		calTransition();
 	}
@@ -71,8 +76,8 @@ public class FirstStroke
 		
 		length = beginPoint.sub(endPoint).length();
 		float percent = 50/length;
-		pieceNum = (int) (2*percent*length/(BigSize+SmallSize));
-		commonDifference = (BigSize-SmallSize)/pieceNum;
+		pieceNum = (int) (2*percent*length/(beginSize+endSize));
+		commonDifference = (beginSize-endSize)/pieceNum;
 		pretreatment();
 		calMix();
 	}
@@ -94,8 +99,8 @@ public class FirstStroke
 		
 		while (distances.lastElement()<length)
 		{
-			distances.add(distances.lastElement()+SmallSize);
-			sizes.add(SmallSize);
+			distances.add(distances.lastElement()+endSize);
+			sizes.add(endSize);
 			
 		}
 		
@@ -109,7 +114,7 @@ public class FirstStroke
 			}
 			else
 			{
-				createCurve(20,currPoint,nextPoint, SmallSize, SmallSize);
+				createCurve(15,currPoint,nextPoint, endSize, endSize);
 			}
 			currPoint = nextPoint;
 		}
@@ -130,12 +135,12 @@ public class FirstStroke
 	{
 		sizes = new Vector<Float>();
 		distances = new Vector<Float>();
-		sizes.add(BigSize);
+		sizes.add(beginSize);
 		distances.add((float) 0);
 		for (int i = 0; i < pieceNum; i++)
 		{
 			distances.add(distances.lastElement() + sizes.lastElement());
-			sizes.add(BigSize - commonDifference*i);
+			sizes.add(beginSize - commonDifference*i);
 		}
 	}
 	

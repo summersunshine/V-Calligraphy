@@ -11,6 +11,7 @@ public class PolygonLine
 	{
 		this.points = points;
 	}
+	
 	public PolygonLine()
 	{
 		this.points = new Vector<Point>();

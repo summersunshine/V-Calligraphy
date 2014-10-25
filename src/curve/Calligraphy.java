@@ -28,7 +28,8 @@ public class Calligraphy
 
 	public void endStroke()
 	{
-		currStroke.addTailCurvePoints();
+		currStroke.modifyTailCurves();
+		
 		strokes.add(currStroke);
 		currStroke = new Stroke();
 	}
